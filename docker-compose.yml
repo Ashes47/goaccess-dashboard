@@ -1,0 +1,65 @@
+services:
+  goaccess:
+    image: allinurl/goaccess:1.9.3
+    restart: unless-stopped
+    command:
+      - /logs/access.log
+      - --log-format=%h %l %u [%d:%t %^] \"%r\" %s %b
+     # - "--log-format=%h %l %u [%d:%t %^] \"%r\" %s %b \"%R\" \"%u\""
+      - --date-format=%d/%b/%Y
+      - --time-format=%H:%M:%S
+      - --real-time-html
+      - --output=/report/index.html
+      - --ws-url=wss://analytics.${DOMAIN}:443/goaccess
+      - --origin=https://analytics.${DOMAIN}
+      - --addr=0.0.0.0
+      - --port=7890
+      - --persist
+      - --restore
+      - --db-path=/db
+    volumes:
+      - /opt/traefik/logs:/logs:ro          # Traefik access log on host
+      - ./db:/db                            # GoAccess DB lives beside this compose
+      - ./report:/report                    # Generated HTML lives beside this compose
+    networks:
+      - traefik_proxy_ext
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n-analyser_traefik_proxy
+
+      # WS service -> THIS container's TCP 7890
+      - traefik.http.services.goaccess-ws.loadbalancer.server.port=7890
+      - traefik.http.routers.goaccess-ws.priority=5000
+
+      # WS router: path-only, no auth
+      - traefik.http.routers.goaccess-ws.rule=Host(`analytics.${DOMAIN}`) && PathPrefix(`/goaccess`)
+      - traefik.http.routers.goaccess-ws.entrypoints=websecure
+      - traefik.http.routers.goaccess-ws.tls.certresolver=myresolver
+      - traefik.http.routers.goaccess-ws.priority=1100
+      - traefik.http.routers.goaccess-ws.service=goaccess-ws
+
+  goaccess-web:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./report:/usr/share/nginx/html:ro    # serves the generated index.html
+    networks:
+      - traefik_proxy_ext
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n-analyser_traefik_proxy
+
+      # HTML route (basic auth ON)
+      - traefik.http.services.goaccess-web.loadbalancer.server.port=80
+      - traefik.http.routers.goaccess-web.rule=Host(`analytics.${DOMAIN}`)
+      - traefik.http.routers.goaccess-web.entrypoints=websecure
+      - traefik.http.routers.goaccess-web.tls.certresolver=myresolver
+      - traefik.http.routers.goaccess-web.priority=1000
+      - traefik.http.routers.goaccess-web.middlewares=auth-goa,no-cache
+      - traefik.http.middlewares.auth-goa.basicauth.users=${TRAEFIK_DASHBOARD_PASSWORD}
+      - traefik.http.middlewares.no-cache.headers.customresponseheaders.Cache-Control=no-store
+
+networks:
+  traefik_proxy_ext:
+    external: true
+    name: n8n-analyser_traefik_proxy
