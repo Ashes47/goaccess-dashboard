@@ -33,7 +33,7 @@ services:
       - "traefik.http.routers.goaccess-ws.rule=Host(`analytics.${DOMAIN}`) && PathPrefix(`/goaccess`)"
       - "traefik.http.routers.goaccess-ws.entrypoints=websecure"
       - "traefik.http.routers.goaccess-ws.tls=true"
-      - "traefik.http.routers.goaccess-ws.tls.certresolver=myresolver"
+      - "traefik.http.routers.goaccess-ws.tls.certresolver=httpresolver"
       - "traefik.http.routers.goaccess-ws.priority=1100"
       - "traefik.http.routers.goaccess-ws.service=goaccess-ws"
 
@@ -53,7 +53,7 @@ services:
       - "traefik.http.routers.goaccess-web.rule=Host(`analytics.${DOMAIN}`)"
       - "traefik.http.routers.goaccess-web.entrypoints=websecure"
       - "traefik.http.routers.goaccess-web.tls=true"
-      - "traefik.http.routers.goaccess-web.tls.certresolver=myresolver"
+      - "traefik.http.routers.goaccess-web.tls.certresolver=httpresolver"
       - "traefik.http.routers.goaccess-web.priority=1000"
       - "traefik.http.routers.goaccess-web.middlewares=auth-goa,no-cache"
       - "traefik.http.middlewares.auth-goa.basicauth.users=${TRAEFIK_DASHBOARD_PASSWORD}"
